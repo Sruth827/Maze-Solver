@@ -3,7 +3,7 @@ from tkinter import Tk, BOTH, Canvas
 class Window():
     def __init__(self, width, height):
         self.root = Tk()
-        self.root.title = ("My Window")
+        self.root.title("My Window")
         self.root.geometry(f"{width}x{height}")
         self.canvas = Canvas(self.root, width = width, height = height)
         self.canvas.pack()
@@ -42,17 +42,51 @@ class Line():
 
 class Cell():
     def __init__(
+            self, window, top_x, top_y, bottom_x, bottom_y, 
+            top_wall = True, right_wall = True, bottom_wall = True, left_wall =True 
+            ):
+        self.has_left_wall = left_wall
+        self.has_right_wall = right_wall
+        self.has_top_wall = top_wall
+        self.has_bottom_wall = bottom_wall
+        self._x1 = top_x
+        self._x2 = bottom_x
+        self._y1 = top_y
+        self._y2 = bottom_y
+        self._win = window
 
+    def draw(self):
+        fill = "#FF0000"
+        if self.has_top_wall:
+            P1 = Point(self._x1, self._y1)
+            P2 = Point(self._x2, self._y1)
+            L1 = Line(P1, P2)
+            L1.draw(self._win.canvas, fill)
+        if self.has_right_wall:
+            P3 = Point(self._x2, self._y1)
+            P4 = Point(self._x2, self._y2)
+            L2 = Line(P3, P4)
+            L2.draw(self._win.canvas, fill)
+        if self.has_bottom_wall:
+            P5 = Point(self._x2, self._y2)
+            P6 = Point(self._x1, self._y2)
+            L3 = Line(P5, P6)
+            L3.draw(self._win.canvas, fill)
+        if self.has_left_wall:
+            P7 = Point(self._x1, self._y1)
+            P8 = Point(self._x1, self._y2)
+            L4 = Line(P7, P8)
+            L4.draw(self._win.canvas, fill)
 def main():
     win = Window(800,600)
-    p1 = Point()
-    p2 = Point(180, 200)
-    l1 = Line(p1, p2)
-    win.draw_line(l1, "#FF0000")
-    p3 = Point(400, 400)
-    p4 = Point(700, 700)
-    l2 = Line(p3,p4)
-    win.draw_line(l2, "#FFF000")
+    c1 = Cell(win, 200, 200, 400, 400, True, True, True, True)
+    c1.draw()
+
+    c2 = Cell(win, 100, 100, 150,150, False, True, False, True)
+    c2.draw()
+
+    c3 = Cell(win, 500, 500, 300, 300, False, False, True, True)
+    c3.draw()
     win.wait_for_close()
 
 
