@@ -56,7 +56,7 @@ class Cell():
         self._win = window
 
     def draw(self):
-        fill = "#FF0000"
+        fill = "black"
         if self.has_top_wall:
             P1 = Point(self._x1, self._y1)
             P2 = Point(self._x2, self._y1)
@@ -77,18 +77,28 @@ class Cell():
             P8 = Point(self._x1, self._y2)
             L4 = Line(P7, P8)
             L4.draw(self._win.canvas, fill)
+
+    def draw_move(self, to_cell, undo):
+        if undo == False:
+            fill = "red"
+        else:
+            fill = "gray"
+        P1 = Point((self._x1 + self._x2) / 2, (self._y1 + self._y2) / 2)
+        P2 = Point((to_cell._x1 + to_cell._x2) /2 , (to_cell._y1 + to_cell._y2) / 2)
+        L1 = Line(P1, P2) 
+        L1.draw(self._win.canvas, fill)
+        
+
+
+
 def main():
     win = Window(800,600)
-    c1 = Cell(win, 200, 200, 400, 400, True, True, True, True)
+    c1 = Cell(win, 200, 200, 300, 300, True, True, True, True)
     c1.draw()
-
-    c2 = Cell(win, 100, 100, 150,150, False, True, False, True)
+    c2 = Cell(win, 200, 300, 300, 400, True , True, True, True)
     c2.draw()
 
-    c3 = Cell(win, 500, 500, 300, 300, False, False, True, True)
-    c3.draw()
-    win.wait_for_close()
-
+    
 
 if __name__ ==  "__main__":
     main()
