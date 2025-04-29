@@ -78,7 +78,7 @@ class Cell():
             L4 = Line(P7, P8)
             L4.draw(self._win.canvas, fill)
 
-    def draw_move(self, to_cell, undo):
+    def draw_move(self, to_cell, undo = False):
         if undo == False:
             fill = "red"
         else:
@@ -97,6 +97,8 @@ def main():
     c1.draw()
     c2 = Cell(win, 200, 300, 300, 400, True , True, True, True)
     c2.draw()
+    c1.draw_move(c2) 
+    win.wait_for_close() 
 
     
 
