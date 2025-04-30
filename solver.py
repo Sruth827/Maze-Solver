@@ -1,4 +1,5 @@
 import time
+import random
 from tkinter import Tk, BOTH, Canvas 
 
 class Window():
@@ -31,6 +32,8 @@ class Point():
         self.x = x
         self.y = y
 
+
+
 class Line():
     def __init__(self, start, end):
         self.start = start
@@ -40,6 +43,8 @@ class Line():
         canvas.create_line(
                 self.start.x, self.start.y, self.end.x, self.end.y, fill = fill_color, width = 2
                 )
+
+
 
 class Cell():
     def __init__(
@@ -55,6 +60,7 @@ class Cell():
         self._y1 = top_y
         self._y2 = bottom_y
         self._win = window
+        self.visited = False
 
     def draw(self):
         if self._win is None:
@@ -118,10 +124,12 @@ class Cell():
         L1.draw(self._win.canvas, fill)
         
 
+
+
 class Maze():
     def __init__(
             self, x1, y1,
-            num_rows, num_cols, cell_size_x, cell_size_y, win = None, 
+            num_rows, num_cols, cell_size_x, cell_size_y, win = None, seed = None
             ):
         self.x1 = x1
         self.y1 = y1
@@ -131,6 +139,9 @@ class Maze():
         self.cell_size_y = cell_size_y
         self.win = win
         self._create_cells()
+        self.seed = seed
+        if self.seed != None: #will be used for random maze generation
+            random.seed(seed)
 
     def _create_cells(self):
         self._cells = []
@@ -149,9 +160,15 @@ class Maze():
         for i in range(self.cols):
             for j in range(self.rows):
                 self._draw_cell(i, j)
-
+        
+        #call function to establist path and create entrance and exit 
+        #functions found below
+        self._break_walls_r(0, 0)
         self._break_entrance_and_exit()
+        #reset all cells.visited to false to then allow for pathfinding
+        self._reset_cells_visited()
 
+    #included print statement to ensure 2D array is handled correctly 
     def _draw_cell(self, i, j):
         print(f"drawing at {i},{j}")
         cell = self._cells[i][j]
@@ -161,10 +178,12 @@ class Maze():
         if self.win:
             self._animate()
 
+    #time delay used to show proper drawing of maze cells prior to walls breaking for path
     def _animate(self):
         self.win.redraw()
         time.sleep(0.05) 
 
+    #remove walls for entrance(top left) to exit(bottom right)
     def _break_entrance_and_exit(self):
         start_cell = self._cells[0][0]
         start_cell.has_top_wall = False
@@ -173,10 +192,67 @@ class Maze():
         end_cell.has_bottom_wall = False
         end_cell.draw()
 
+    
+    
+    #Recurisive Depth First Search used to create path through maze
+    #One possible path from entrance(top left) to exit(bottom right)
+    def _break_walls_r(self, i, j):
+        cur = self._cells[i][j] 
+        cur.visited = True 
+        while True:
+            need_to_visit = []
+            
+            #find any unvisited neighbors and add to list
+            #had i and j backwards, now fixed to properly account for maze boundaries
+            directions = [(0,1), (1,0), (0,-1), (-1,0)]
+            for dirx, diry in directions:
+                ni, nj = i + diry, j + dirx
+                if 0 <= ni < self.cols and 0 <= nj < self.rows and not self._cells[ni][nj].visited:
+                    need_to_visit.append((dirx, diry, i+diry, j+dirx))
+
+            #if no unvisited neights, draw current node
+            if not need_to_visit:
+                cur.draw()
+                return\
+            
+            next = random.choice(need_to_visit)
+            dirx, diry, ni, nj = next 
+            if (dirx, diry) == (0, 1):
+                cur.has_right_wall = False 
+                next_cell = self._cells[ni][nj]
+                next_cell.has_left_wall = False
+            elif (dirx, diry) == (1, 0):
+                cur.has_bottom_wall = False
+                next_cell = self._cells[ni][nj]
+                next_cell.has_top_wall = False
+            elif (dirx, diry) == (0, -1):
+                cur.has_left_wall = False 
+                next_cell = self._cells[ni][nj]
+                next_cell.has_right_wall = False
+            elif (dirx, diry) == (-1, 0):
+                cur.has_top_wall = False 
+                next_cell = self._cells[ni][nj]
+                next_cell.has_bottom_wall = False
+            cur.draw()
+            next_cell.draw()
+
+            #recursive call 
+            self._break_walls_r(ni, nj)
+
+    def _reset_cells_visited(self):
+        for row in self._cells:
+            for cell in row:
+                cell.visited = False
+                print(f"cell visited {cell.visited}")
+            
+                
+        
+
+       
 def main():
     win = Window(800, 600)
 
-    maze = Maze(50, 50, 3, 3, 50, 50, win)
+    maze = Maze(20, 20, 5, 5, 50, 50, win)
 
     win.wait_for_close() 
 
