@@ -117,7 +117,7 @@ class Cell():
         if undo == False:
             fill = "red"
         else:
-            fill = "gray"
+            fill = "white"
         P1 = Point((self._x1 + self._x2) / 2, (self._y1 + self._y2) / 2)
         P2 = Point((to_cell._x1 + to_cell._x2) /2 , (to_cell._y1 + to_cell._y2) / 2)
         L1 = Line(P1, P2) 
@@ -197,24 +197,23 @@ class Maze():
     #Recurisive Depth First Search used to create path through maze
     #One possible path from entrance(top left) to exit(bottom right)
     def _break_walls_r(self, i, j):
-        cur = self._cells[i][j] 
-        cur.visited = True 
+        cur = self._cells[i][j]
+        cur.visited = True
         while True:
-            need_to_visit = []
-            
+            need_to_visit=[]
+
             #find any unvisited neighbors and add to list
             #had i and j backwards, now fixed to properly account for maze boundaries
             directions = [(0,1), (1,0), (0,-1), (-1,0)]
             for dirx, diry in directions:
                 ni, nj = i + diry, j + dirx
-                if 0 <= ni < self.cols and 0 <= nj < self.rows and not self._cells[ni][nj].visited:
-                    need_to_visit.append((dirx, diry, i+diry, j+dirx))
-
+                if 0 <= ni < self.cols and 0 <= nj < self.rows and not self._cells[ni][nj].visited:                 need_to_visit.append((dirx, diry, ni, nj))
+        
             #if no unvisited neights, draw current node
             if not need_to_visit:
                 cur.draw()
-                return\
-            
+                return        
+
             next = random.choice(need_to_visit)
             dirx, diry, ni, nj = next 
             if (dirx, diry) == (0, 1):
@@ -235,9 +234,12 @@ class Maze():
                 next_cell.has_bottom_wall = False
             cur.draw()
             next_cell.draw()
-
-            #recursive call 
+            
+            #recursive call
             self._break_walls_r(ni, nj)
+
+
+
 
     def _reset_cells_visited(self):
         for row in self._cells:
@@ -246,15 +248,39 @@ class Maze():
                 print(f"cell visited {cell.visited}")
             
                 
+    def solve(self):
+        self._solve_r(0, 0)
         
 
-       
+    def _solve_r(self, i, j):
+        self._animate()
+        cur = self._cells[i][j]
+        cur.visited = True
+        if cur == self._cells[-1][-1]:
+            return True
+        directions = [(0,1, "has_right_wall"), (1,0, "has_bottom_wall"), (0,-1, "has_left_wall"), (-1,0, "has_top_wall")]
+
+        for dirx, diry, wallattr in directions:
+            ni, nj = i + diry, j + dirx
+            if 0 <= ni < self.cols and 0 <= nj < self.rows:
+                next_cell = self._cells[ni][nj]
+                if not next_cell.visited and not getattr(cur, wallattr):
+                    cur.draw_move(next_cell)
+                                         
+                    if self._solve_r(ni, nj):
+                        return True
+            
+        return False
+
+
+
+
 def main():
-    win = Window(800, 600)
+    win = Window(1080, 1080)
 
-    maze = Maze(20, 20, 5, 5, 50, 50, win)
-
-    win.wait_for_close() 
+    maze = Maze(20, 20, 19, 19, 50, 50, win)
+    maze.solve()
+    win.wait_for_close()
 
     
 
