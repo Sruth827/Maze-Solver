@@ -1,16 +1,32 @@
+import sys
+import traceback
 import time
 import random
-from tkinter import Tk, BOTH, Canvas 
+import psutil
+import os
+import tkinter as tk
+from tkinter import *
+from tkinter import ttk
+from collections import deque
 
-class Window():
+class Window:
     def __init__(self, width, height):
-        self.root = Tk()
-        self.root.title("My Window")
+        self.root = tk.Tk()
+        self.root.title("Algorithm Visualization")
         self.root.geometry(f"{width}x{height}")
-        self.canvas = Canvas(self.root, width = width, height = height)
-        self.canvas.pack()
+        self.canvas = tk.Canvas(self.root, width = width, height = height)
+        self.canvas.place(x = 0, y = 0)
+        self.console = tk.Text(self.root, wrap = "word", height = 10, width = 50)
+        self.console.pack()
+        self.console.place(x = 700, y = 100, width = 300, height = 890)
         self.running = False 
         self.root.protocol("WM_DELETE_WINDOW", self.close)
+        self.canvas.create_text(700, 80, text = "Traceback Stack", anchor = W,font = ("Ubuntu" , 18), fill = "Black" )
+        self.canvas.create_text(50, 30, text = "Depth-First Search", anchor = W,font = ("Ubuntu" , 18), fill = "Black" )
+        self.canvas.create_text(50, 380, text = "Breadth-First Search",anchor = W, font = ("Ubuntu", 18), fill = "Black" )
+        self.canvas.create_text(50, 730, text = "BFS with reconstruct",anchor = W, font = ("Ubuntu", 18),  fill = "Black")
+        self.canvas.lower(self.root)
+
 
     def redraw(self):
         self.root.update_idletasks()
@@ -26,11 +42,43 @@ class Window():
 
     def draw_line(self, Line, fill_color):
         Line.draw(self.canvas,fill_color)
+    
+   
+    def log_stack(self):
+        stack = traceback.extract_stack()  
+        recursive_calls = []
+
+        seen_functions = set()
+        for frame in stack:
+            func_name = frame.name
+            if func_name in seen_functions:  
+                recursive_calls.append(f"Line: {frame.lineno} | Recursive Call {frame.line} - {func_name}")
+            seen_functions.add(func_name)
+
+        if recursive_calls:
+            stack_info = "\n".join(recursive_calls)
+        else:
+            stack_info = "No recursive calls detected."
+
+        self.console.insert(tk.END, stack_info + "\n\n")  
+        self.console.see(tk.END)  
+
+    def get_memory_usage(self):
+       process = psutil.Process(os.getpid())
+       return process.memory_info().rss
+    
+    def update_memory_canvas(self, mem_usage, x, y, maze_name):
+       
+        text_id = f"mem_{maze_name}"  
+
+        self.canvas.delete(text_id) 
+        self.canvas.create_text(x, y, text=f"{maze_name} Memory:\n{mem_usage} bytes",font=("Ubuntu", 14), anchor = W, fill="Black", tags=text_id)
 
 class Point():
     def __init__(self, x = 0, y = 0):
         self.x = x
         self.y = y
+
 
 
 
@@ -40,7 +88,7 @@ class Line():
         self.end = end
 
     def draw(self, canvas, fill_color):
-        canvas.create_line(
+        return canvas.create_line(
                 self.start.x, self.start.y, self.end.x, self.end.y, fill = fill_color, width = 2
                 )
 
@@ -60,7 +108,9 @@ class Cell():
         self._y1 = top_y
         self._y2 = bottom_y
         self._win = window
+        self.drawn_lines = []
         self.visited = False
+        self.color = None
 
     def draw(self):
         if self._win is None:
@@ -88,7 +138,6 @@ class Cell():
             P4 = Point(self._x2, self._y2)
             L2 = Line(P3, P4)
             L2.draw(self._win.canvas, fill_2)
-       
 
         if self.has_bottom_wall:
             P5 = Point(self._x2, self._y2)
@@ -99,8 +148,8 @@ class Cell():
             P5 = Point(self._x2, self._y2)
             P6 = Point(self._x1, self._y2)
             L3 = Line(P5, P6)
-            L3.draw(self._win.canvas, fill_2)   
-        
+            L3.draw(self._win.canvas, fill_2)
+
         if self.has_left_wall:
             P7 = Point(self._x1, self._y1)
             P8 = Point(self._x1, self._y2)
@@ -117,14 +166,21 @@ class Cell():
         if undo == False:
             fill = "red"
         else:
-            fill = "white"
+            fill = "blue"
         P1 = Point((self._x1 + self._x2) / 2, (self._y1 + self._y2) / 2)
         P2 = Point((to_cell._x1 + to_cell._x2) /2 , (to_cell._y1 + to_cell._y2) / 2)
         L1 = Line(P1, P2) 
-        L1.draw(self._win.canvas, fill)
-        
+        lineID = L1.draw(self._win.canvas, fill)
+        self.drawn_lines.append(lineID)
 
-
+    def clear_move(self):
+        for lineID in self.drawn_lines:
+            self._win.canvas.delete(lineID)
+        self.drawn_lines.clear()
+    
+    def highlight(self):
+        self.color = (0, 255, 0)
+        self.draw()
 
 class Maze():
     def __init__(
@@ -175,13 +231,12 @@ class Maze():
         if self.win == None: 
             return
         cell.draw()
-        if self.win:
-            self._animate()
+        
 
     #time delay used to show proper drawing of maze cells prior to walls breaking for path
-    def _animate(self):
+    def _animate(self, speed):
         self.win.redraw()
-        time.sleep(0.05) 
+        time.sleep(speed) 
 
     #remove walls for entrance(top left) to exit(bottom right)
     def _break_entrance_and_exit(self):
@@ -197,9 +252,11 @@ class Maze():
     #Recurisive Depth First Search used to create path through maze
     #One possible path from entrance(top left) to exit(bottom right)
     def _break_walls_r(self, i, j):
+        self.win.log_stack()
         cur = self._cells[i][j]
         cur.visited = True
         while True:
+            self._animate(0.02)
             need_to_visit=[]
 
             #find any unvisited neighbors and add to list
@@ -248,12 +305,13 @@ class Maze():
                 print(f"cell visited {cell.visited}")
             
                 
-    def solve(self):
-        self._solve_r(0, 0)
+    def solveDFS(self):
+        self._solve_DFS(0, 0)
         
 
-    def _solve_r(self, i, j):
-        self._animate()
+    def _solve_DFS(self, i, j):
+        self.win.log_stack()
+        self._animate(0.05)
         cur = self._cells[i][j]
         cur.visited = True
         if cur == self._cells[-1][-1]:
@@ -267,19 +325,122 @@ class Maze():
                 if not next_cell.visited and not getattr(cur, wallattr):
                     cur.draw_move(next_cell)
                                          
-                    if self._solve_r(ni, nj):
+                    if self._solve_DFS(ni, nj):
                         return True
             
         return False
+    
+    
+    def solve_BFS(self):
+        self.win.log_stack()
+        queue = deque([(0,0)])
+
+        while queue:
+            i, j = queue.popleft()
+            self._animate(0.05) 
+            cur = self._cells[i][j]
+            cur.visited = True
+            if cur == self._cells[-1][-1]:
+                return True
+            directions = [(0,1, "has_right_wall"), (1,0, "has_bottom_wall"), (0,-1, "has_left_wall"), (-1,0, "has_top_wall")]
+
+            for dirx, diry, wallattr in directions:
+                ni, nj  = i + diry, j + dirx
+                if 0 <= ni < self.cols and 0 <= nj < self.rows:
+                    next_cell = self._cells[ni][nj]
+                    if not next_cell.visited and not getattr(cur, wallattr):
+                        cur.draw_move(next_cell)
+                        queue.append((ni, nj))
+                        next_cell.visited = True
+        return False
 
 
+    def solve_BFS_with_helper(self):
+        self.win.log_stack()
+        queue = deque([(0, 0)])
+        parent_map = {}  # Track predecessors for reconstructing the path
+
+        while queue:
+            i, j = queue.popleft()
+            self._animate(0.05)
+            cur = self._cells[i][j]
+            cur.visited = True
+
+            if cur == self._cells[-1][-1]:  # Goal reached, reconstruct path
+                return self._reconstruct_path(parent_map, i, j)
+
+            directions = [(0,1, "has_right_wall"), (1,0, "has_bottom_wall"),
+                          (0,-1, "has_left_wall"), (-1,0, "has_top_wall")]
+
+            for dirx, diry, wallattr in directions:
+                ni, nj = i + diry, j + dirx
+                if 0 <= ni < self.cols and 0 <= nj < self.rows:
+                    next_cell = self._cells[ni][nj]
+                
+                    if not next_cell.visited and not getattr(cur, wallattr):
+                        cur.draw_move(next_cell)
+                        queue.append((ni, nj))
+                        next_cell.visited = True  # Mark as visited here
+                        parent_map[(ni, nj)] = (i, j)  # Store parent for path tracing
+
+        return False  # No solution found
+
+    def _reconstruct_path(self, parent_map, i, j):
+        #Backtracks from goal to reconstruct the single path
+        path = []
+        while (i, j) in parent_map:
+            path.append((i, j))
+            i, j = parent_map[(i, j)]
+         
+        path.reverse()  # Reverse to start from the beginning
+        
+        for x, y in path:
+            self._cells[x][y].clear_move()
+
+        for index in range(len(path) -1):
+            x1, y1 = path[index]
+            x2, y2 = path[index + 1]
+            self._cells[x1][y1].draw_move(self._cells[x2][y2], True)
+                                           
 
 
 def main():
     win = Window(1080, 1080)
+    
+    mazeDFS = Maze(30, 50, 20, 20, 15, 15, win)
+    mazeBFS = Maze (30, 400, 20, 20, 15, 15, win)
+    mazeBFShelper = Maze (30, 750, 20, 20, 15, 15, win)
 
-    maze = Maze(20, 20, 19, 19, 50, 50, win)
-    maze.solve()
+    before_dfs = win.get_memory_usage()
+    win.update_memory_canvas(before_dfs, x = 350, y = 70, maze_name = "Before solveDFS()")
+    mazeDFS.solveDFS()
+    after_dfs = win.get_memory_usage()
+    dfs_mem_used = after_dfs - before_dfs
+    print(f"Before DFS : {before_dfs}")
+    print(f"DFS Mem Usage: {after_dfs - before_dfs} bytes")
+    win.update_memory_canvas(after_dfs, x = 350, y = 150, maze_name = "After solveDFS()")
+    win.update_memory_canvas(dfs_mem_used, x = 350, y = 230, maze_name = "solveDFS() Used")
+
+    before_bfs = win.get_memory_usage()
+    win.update_memory_canvas(before_bfs, x = 350, y = 420, maze_name = "Before solve_BFS()")    
+    mazeBFS.solve_BFS()
+    after_bfs = win.get_memory_usage()
+    bfs_mem_used = after_bfs - before_bfs
+    print(f"Before BFS : {before_bfs}")
+    print(f"BFS Mem Usage: {after_bfs - before_bfs} bytes")
+    win.update_memory_canvas(after_bfs, x = 350, y = 500, maze_name = "After solve_BFS()")   
+    win.update_memory_canvas(bfs_mem_used, x = 350, y = 580, maze_name = "solve_BFS() Used")   
+
+    before_bfs_helper = win.get_memory_usage()
+    win.update_memory_canvas(before_bfs_helper, x = 350, y = 770, maze_name = "Before solve_BFS_with_helper()")    
+    mazeBFShelper.solve_BFS_with_helper()
+    after_bfs_helper = win.get_memory_usage()
+    bfs_helper_mem_used = after_bfs_helper - before_bfs_helper
+    print(f"Before BFS_helper : {before_bfs_helper}")
+    print(f"BFS with Reconstruct Mem Usage: {after_bfs_helper - before_bfs_helper} bytes")
+    win.update_memory_canvas(after_bfs_helper, x = 350, y = 850, maze_name = "After solve_BFS_with_helper()")
+    win.update_memory_canvas(bfs_helper_mem_used, x = 350, y = 930, maze_name = "solve_BFS_with_helper() Used")
+
     win.wait_for_close()
 
     
